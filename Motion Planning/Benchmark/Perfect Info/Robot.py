@@ -33,22 +33,46 @@ class Robot(Model):
         # return the info got
         return {'models': world.models, 'limits': world.limits}
 
-    def planner(self, goal, map, t):
+    def planner(self, goal, space, t, algo='naive'):
         # motion planning algorithms for Robot from init to goal
         # now is pre plan
-        if self.preplan != None:
-            return self.preplan(t)
-        else:
-            # compute preplan
-            pdif = goal['pos'] - self.pos
-            odif = goal['ori'] - self.ori
-
-            start = t
-            tmax = 150.0  # seconds to finish the work
-            def preplan(t):
-                if t >= tmax:
-                    return {'vp': pdif*0, 'vr': odif*0}
-                else:
-                    return {'vp': pdif/(tmax-start), 'vr': odif/(tmax-start)}
-            self.preplan = preplan
+        if self.preplan == None:
+            # construct preplan
+            if algo == 'sample':
+                self.preplan = self.samplingBased(goal, space, t)
+            elif algo == 'naive':
+                self.preplan = self.naiveSearch(goal, space, t)
         return self.preplan(t)
+
+    def naiveSearch(self, goal, space, t):
+        pdif = goal['pos'] - self.pos
+        odif = goal['ori'] - self.ori
+        start = t
+        tmax = 150.0  # seconds to finish the work
+        def preplan(t):
+            # parameters are visible here
+            if t >= tmax:
+                return {'vp': pdif*0, 'vr': odif*0}
+            else:
+                return {'vp': pdif/(tmax-start), 'vr': odif/(tmax-start)}
+        return preplan
+
+    def samplingBased(self, goal, space, t):
+        def init():
+            return True
+        def sample():
+            return True
+        def vsm():
+            return True
+        def lpm():
+            return True
+        # state space
+        G = init()
+        while True:
+            qnew = sample()
+            # look for the nearest vertex in G
+            qcur = vsm(G, qnew)
+            # connect edge from qcur to qnew
+            G = lpm(G, qcur, qnew)
+        self.GraphSearch(G, init, goal)
+        return True

@@ -53,3 +53,8 @@ class CollisionDetection:
         b_eq = np.array([1])  # ensure x[2] = 1
         res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq)
         return res['success']
+
+        @classmethod
+        def incremental(cls, p):
+            # to be implemented
+            return True
