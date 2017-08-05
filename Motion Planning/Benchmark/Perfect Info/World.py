@@ -1,5 +1,6 @@
 import numpy as np
 from Model import Model
+from CollisionDetection import CollisionDetection as clsdet
 class World:
     # field
     @property
@@ -73,3 +74,9 @@ class World:
         # model moves for velocity during st time
         robot.pos += velocity['vp'] * st
         robot.ori += velocity['vr'] * st
+        robot.wgeo['v'] = robot.pos + robot.geo['v']
+        for ob in self.obs:
+            if clsdet.convexconvex(robot.wgeo, ob.wgeo):
+                print('colliding')
+                return False
+        return True

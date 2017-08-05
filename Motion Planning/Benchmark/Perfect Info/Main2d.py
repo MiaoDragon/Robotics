@@ -14,6 +14,7 @@ t = 0.0
 tmax = 1200.0
 width = 500.0 # for two windows
 height = 500.0
+collide = False  # not colliding
 
 limits = np.array([width, height])
 goal = {'pos': np.array([150.0, 150.0]), 'ori': np.array([0.0])}
@@ -38,10 +39,11 @@ def init():
     patchO.set_xy(ob.geo['v']+ob.pos)
     return [patchR, patchO]
 def animate(i):
+    #if not collide:
     velocity = robot.planner(goal, None, i*st)
     world.move(robot, velocity, st)
-    patchR.set_xy(robot.geo['v']+robot.pos)
-    patchO.set_xy(ob.geo['v']+ob.pos)
+    patchR.set_xy(robot.wgeo['v'])
+    patchO.set_xy(ob.wgeo['v'])
     return [patchR, patchO]
 
 anim = animation.FuncAnimation(fig, animate, init_func=init, frames=360, interval=20, blit=False)
