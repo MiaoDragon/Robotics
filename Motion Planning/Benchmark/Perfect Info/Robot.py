@@ -65,10 +65,14 @@ class Robot(Model):
 
     def graphSearch(self, G, init, goal):
         gid = None
+        print('in graphsearch')
+        print('goal:  ' + str(goal['np']))
         for v in G['V']:
-            if all(v['np'] == goal['np']):
+            print(str(v['np']))
+            if all(np.isclose(v['np'],goal['np'])):
                 gid = v['id']
         if not gid:
+            print('goal not in')
             return None
         # A*
         # g: cost up to now
@@ -87,9 +91,9 @@ class Robot(Model):
             i = u['id']
             g[i] = f - h[i]
             check[i] = True
-            for j in len(G['V']):
+            for j in range(len(G['V'])):
                 if G['E'][i][j] and not check[j]:
-                    gnew = g[i] + self.distance(u,G['V'][j]['np'])
+                    gnew = g[i] + self.distance(u['np'],G['V'][j]['np'])
                     # check if explored
                     if parent[j] != -1:
                         # explored
@@ -134,6 +138,7 @@ class Robot(Model):
 
     def samplingBased(self, goal, world, t):
         # search in the coordination space
+        # directly search in the real world (shifted coordination space)
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         ax.set_xlabel('X')
@@ -163,13 +168,16 @@ class Robot(Model):
                 success = False
                 while not success:
                     q = np.random.rand(3) * np.append(2*world.limits, 2*np.pi) - np.append(world.limits, 0)
+                    q[2] = 0.0
                     success = True
                     # check if appear in graph
-                    if len(list(filter(lambda v: all(v['np']==q), G['V']))):
+                    if len(list(filter(lambda v: all(np.isclose(v['np'],q)), G['V']))):
                         success = False
                     qnew = {'pos': q[0:2], 'ori': q[2:3], 'np': q}
+                    print(qnew['np'])
                     for ob in world.obs:
                         if clsdet.convexconvex(self.getGeo(qnew), ob.wgeo):
+                            print('fail')
                             success = False
                 return {'pos': q[0:2], 'ori': q[2:3], 'np': q}
             elif mode == 'det':
@@ -193,6 +201,7 @@ class Robot(Model):
             # here use the delta method, where delta is a parameter for tuning
             delta = 0.005
             dif = qnew['np'] - qcur['np']
+            print('qcur: ' + str(qcur['np']))
             t = delta
             tmark = 1.0
             q = {}
@@ -204,15 +213,17 @@ class Robot(Model):
                 for ob in world.obs:
                     if clsdet.convexconvex(self.getGeo(q), ob.wgeo):
                         tmark = t-delta
+                if not np.isclose(tmark,1.0):
+                    break
                 t += delta
             print(tmark)
-            if tmark == 0:
+            if np.isclose(tmark,0):
                 return G
             qnew['np'] = qcur['np'] + tmark*dif
             qnew['pos'] = qnew['np'][0:2]
             qnew['ori'] = qnew['np'][2:]
             # test if qnew repeats
-            if len(list(filter(lambda v: all(v['np']==qnew['np']), G['V']))):
+            if len(list(filter(lambda v: all(np.isclose(v['np'],qnew['np'])), G['V']))):
                 return G
             # insert into G
             qnew['id'] = len(G['V'])
@@ -221,6 +232,7 @@ class Robot(Model):
             G['E'].append([0]*len(G['V']))
             G['E'][qcur['id']][qnew['id']] = 1
             G['E'][qnew['id']][qcur['id']] = 1
+            print('new node: ' + str(qnew['np']))
 
             ax.scatter(qnew['np'][0],qnew['np'][1],qnew['np'][2],c='b',marker='o')
             xs = np.array([qcur['np'][0],qnew['np'][0]])
@@ -229,22 +241,23 @@ class Robot(Model):
             ax.plot(xs,ys,zs)
             return G
         def checkGoal(G, goal):
-            return len(list(filter(lambda v: all(v['np']==goal['np']), G['V'])))
+            return len(list(filter(lambda v: all(np.isclose(v['np'],goal['np'])), G['V'])))
         # plot the collision region
 
         # state space
         G = init(self, t)
         i = 0
-        addGT = 5 #every 50 steps
-        testT = 10 # every 100 steps
-        termT = 30
+        addGT = 20 #every 50 steps
+        testT = 20 # every 100 steps
+        termT = 40
         while True:
             if i % addGT == 0:
                 # try adding goal inside
                 qnew = {'pos': goal['pos'], 'ori': goal['ori'], 'np': np.append(goal['pos'], goal['ori'], axis=0)}
+                print(qnew['np'])
             else:
                 qnew = sample(self, world, i)
-            print(qnew['np'])
+
             # look for the nearest vertex in G
             qcur = vsm(self, G, qnew)
             # connect edge from qcur to qnew
@@ -255,6 +268,7 @@ class Robot(Model):
             #plt.clf()   clear figure
             if i % testT == 0:
                 if checkGoal(G, goal):
+                    print('should be end')
                     break
             i += 1
             if i > termT:
@@ -267,22 +281,24 @@ class Robot(Model):
             return self.naiveSearch(goal, world, t)
         # convert index path to vertex path
         path = list(map(lambda x: G['V'][x]['np'], path))
+        print(path)
         # parameter of motion
         velocity = 1.0
 
         def preplan(t):
+            print(t)
             dis = velocity * t
             i = 0
             while dis > 0.0 and i < len(path)-1:
-                l = self.distance(path[i], path[j])
+                l = self.distance(path[i], path[i+1])
                 if dis > l:
                     # delete one
                     i += 1
                     dis -= l
                 else:
-                    v = velocity * (path[j]-path[i])/l
+                    v = velocity * (path[i+1]-path[i])/l
                     vp = v[0:2]
                     vr = v[2:]
                     return {'vp': vp, 'vr': vr}
-            return 0
+            return {'vp': 0, 'vr': 0}
         return preplan
