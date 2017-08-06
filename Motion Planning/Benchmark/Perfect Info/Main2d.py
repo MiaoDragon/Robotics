@@ -18,8 +18,8 @@ collide = False  # not colliding
 
 limits = np.array([width, height])
 goal = {'pos': np.array([150.0, 150.0]), 'ori': np.array([0.0]), 'np': np.array([150.0,150.0,0.0])}
-robot = Robot(np.array([width/2.0, height/2.0]), {'v': np.array([[10.0,10.0],[-10.0,10.0],[-10.0,-10.0],[10.0,-10.0]])})
-ob = Model(np.array([200.0, 200.0]), {'v': np.array([[10.0,10.0],[-10.0,10.0],[-10.0,-10.0],[10.0,-10.0]])})
+robot = Robot({'v': np.array([[10.0,10.0],[-10.0,10.0],[-10.0,-10.0],[10.0,-10.0]])}, np.array([width/2.0, height/2.0]))
+ob = Model({'v': np.array([[10.0,10.0],[-10.0,10.0],[-10.0,-10.0],[10.0,-10.0]])},np.array([200.0, 200.0]))
 world = World(2, limits, [robot], [ob], goal)
 # init figure
 fig = plt.figure()

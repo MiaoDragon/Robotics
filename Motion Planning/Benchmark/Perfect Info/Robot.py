@@ -5,6 +5,9 @@ from World import World
 import copy
 import queue
 from CollisionDetection import CollisionDetection as clsdet
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import animation
 class Robot(Model):
     # field
     @property
@@ -20,23 +23,23 @@ class Robot(Model):
     def ori(self, val):
         self._ori = val
     # methods
-    def __init__(self, pos, geo):
-        Model.__init__(self, pos, geo)
+    def __init__(self, geo, pos, ori=np.array([0.0])):
+        Model.__init__(self, geo, pos, ori)
         # preplan is a function
         # t -> [velocity vector, rotation vector] (normalized)
         self._preplan = None
-        if self.dim == 2:
-            self._ori = np.array([0.0])
-        else:
-            self._ori = np.array([0.0,0.0,0.0])
 
     def distance(self, a, b):
         # a, b: np array
         return np.linalg.norm(a-b)
 
     def getGeo(self, c):
-        geo = copy.deepcopy(self.geo)
-        geo['v'] += c['pos']
+        T = np.array([[np.cos(c['ori'][0]),np.sin(c['ori'][0]),0],
+                      [np.sin(c['ori'][0]),-np.cos(c['ori'][0]),0],
+                      [c['pos'][0],c['pos'][1],1]])
+        geo = {}
+        geo['v'] = np.concatenate((self.geo['v'],np.ones((self.geo['v'].shape[0], 1))), axis=1)
+        geo['v'] = np.dot(geo['v'], T)[:,0:len(geo['v'][0])-1]
         return geo
 
     def ai(self, goal, world, t, algo='naive'):
@@ -131,15 +134,23 @@ class Robot(Model):
 
     def samplingBased(self, goal, world, t):
         # search in the coordination space
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_xlabel('theta')
         def init(self, t):
             # return the graph (V, E)
             # E has three possible representations: adjacent matrix or list, or set
             # here for simplicity, use adjacent matrix
             vi = {'pos': self.pos, 'ori': self.ori, 'np': np.append(self.pos, self.ori, axis=0),
                   'id': 0}
-            #vg = {'pos': goal['pos'], 'ori': goal['ori'], 'np': np.append(goal['pos'], goal['ori'], axis=0),
-            #      'id': 0}
+            vg = {'pos': goal['pos'], 'ori': goal['ori'], 'np': np.append(goal['pos'], goal['ori'], axis=0),
+                  'id': 0}
+            ax.scatter(vg['np'][0],vg['np'][1],vg['np'][2],c='r',marker='x')
             #V = [vi, vg]
+            # show
+            ax.scatter(vi['np'][0],vi['np'][1],vi['np'][2],c='b',marker='o')
             V = [vi]
             E = [[0]]
             G = {'V': V, 'E': E}
@@ -180,7 +191,7 @@ class Robot(Model):
             # avoid collision
             # use step size small enough to get the stopping config
             # here use the delta method, where delta is a parameter for tuning
-            delta = 0.01
+            delta = 0.005
             dif = qnew['np'] - qcur['np']
             t = delta
             tmark = 1.0
@@ -194,6 +205,7 @@ class Robot(Model):
                     if clsdet.convexconvex(self.getGeo(q), ob.wgeo):
                         tmark = t-delta
                 t += delta
+            print(tmark)
             if tmark == 0:
                 return G
             qnew['np'] = qcur['np'] + tmark*dif
@@ -209,15 +221,23 @@ class Robot(Model):
             G['E'].append([0]*len(G['V']))
             G['E'][qcur['id']][qnew['id']] = 1
             G['E'][qnew['id']][qcur['id']] = 1
+
+            ax.scatter(qnew['np'][0],qnew['np'][1],qnew['np'][2],c='b',marker='o')
+            xs = np.array([qcur['np'][0],qnew['np'][0]])
+            ys = np.array([qcur['np'][1],qnew['np'][1]])
+            zs = np.array([qcur['np'][2],qnew['np'][2]])
+            ax.plot(xs,ys,zs)
             return G
         def checkGoal(G, goal):
             return len(list(filter(lambda v: all(v['np']==goal['np']), G['V'])))
+        # plot the collision region
+
         # state space
         G = init(self, t)
         i = 0
         addGT = 5 #every 50 steps
         testT = 10 # every 100 steps
-        termT = 50
+        termT = 30
         while True:
             if i % addGT == 0:
                 # try adding goal inside
@@ -230,12 +250,17 @@ class Robot(Model):
             # connect edge from qcur to qnew
             G = lpm(self, G, world, qcur, qnew)
             # check if goal is reachable
+            plt.draw()
+            plt.pause(1)
+            #plt.clf()   clear figure
             if i % testT == 0:
                 if checkGoal(G, goal):
                     break
             i += 1
             if i > termT:
                 break
+        #anim = animation.FuncAnimation(fig, animate, init_func=init, frames=360, interval=20, blit=False)
+        #plt.show()
         path = self.graphSearch(G, init, goal)
         if path == None:
             #no solution
@@ -255,6 +280,9 @@ class Robot(Model):
                     i += 1
                     dis -= l
                 else:
-                    return velocity * (path[j]-path[i])/l
+                    v = velocity * (path[j]-path[i])/l
+                    vp = v[0:2]
+                    vr = v[2:]
+                    return {'vp': vp, 'vr': vr}
             return 0
         return preplan

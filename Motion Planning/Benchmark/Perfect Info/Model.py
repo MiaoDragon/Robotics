@@ -4,11 +4,23 @@ import copy
 class Model:
     # field
     @property
+    def homotran(self):
+        return self._homotran
+    @homotran.setter
+    def homotran(self, val):
+        self._homotran = val
+    @property
     def pos(self):
         return self._pos
     @pos.setter
     def pos(self, val):
         self._pos = val
+    @property
+    def ori(self):
+        return self._ori
+    @ori.setter
+    def ori(self, val):
+        self._ori = val
     @property
     def dim(self):
         return self._dim
@@ -28,12 +40,13 @@ class Model:
     def wgeo(self, val):
         self._wgeo = val
     # functions
-    def __init__(self, pos, geo):
+    def __init__(self, geo, pos, ori=np.array([0.0])):
         # init in the pos of the world
         # pos: 1D vector (the position of the coordinate origin)
         # geo: v (vertices)    --- 2d
         # geo: v, f(faces)     --- 3d
         self._pos = pos
+        self._ori = ori
         self._dim = len(pos)
         self._geo = geo
         self._wgeo = copy.deepcopy(geo)

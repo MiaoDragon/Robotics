@@ -74,7 +74,12 @@ class World:
         # model moves for velocity during st time
         robot.pos += velocity['vp'] * st
         robot.ori += velocity['vr'] * st
-        robot.wgeo['v'] = robot.pos + robot.geo['v']
+        T = np.array([[np.cos(robot.ori[0]),np.sin(robot.ori[0]),0],
+                      [np.sin(robot.ori[0]),-np.cos(robot.ori[0]),0],
+                      [robot.pos[0],robot.pos[1],1]])
+        # append one to each row
+        geo = np.concatenate((robot.geo['v'],np.ones((robot.geo['v'].shape[0], 1))), axis=1)
+        robot.wgeo['v'] = np.dot(geo, T)[:,0:len(geo[0])-1]
         for ob in self.obs:
             if clsdet.convexconvex(robot.wgeo, ob.wgeo):
                 print('colliding')
